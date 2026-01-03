@@ -1,28 +1,17 @@
-TEST_MODE = True
-
-
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 import os
 import random
 
-# IST timezone
-IST = timezone(timedelta(hours=5, minutes=30))
-now = datetime.now(IST)
-
-# Run only between 1 AM and 9 AM IST
-if not TEST_MODE and not (1 <= now.hour <= 9):
-    print("Outside night window. Exiting.")
-    exit(0)
-
-# Create output folder
 os.makedirs("agents", exist_ok=True)
 
+now = datetime.utcnow().isoformat()
 agent_id = random.randint(1000, 9999)
+
 filename = f"agents/multi_agent_{agent_id}.py"
 
 content = f'''"""
 Auto-generated Multi-Agent Example
-Generated at {now.isoformat()}
+Generated at {now} UTC
 """
 
 class Agent:
@@ -47,7 +36,7 @@ if __name__ == "__main__":
     planner = PlannerAgent("Planner")
     executor = ExecutorAgent("Executor")
 
-    task = "Build an AI system"
+    task = "Build an autonomous system"
     plan = planner.plan(task)
     result = executor.execute(plan)
 
