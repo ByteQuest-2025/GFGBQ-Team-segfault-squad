@@ -1,3 +1,6 @@
+TEST_MODE = True
+
+
 from datetime import datetime, timezone, timedelta
 import os
 import random
@@ -7,7 +10,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 now = datetime.now(IST)
 
 # Run only between 1 AM and 9 AM IST
-if not (1 <= now.hour <= 9):
+if not TEST_MODE and not (1 <= now.hour <= 9):
     print("Outside night window. Exiting.")
     exit(0)
 
