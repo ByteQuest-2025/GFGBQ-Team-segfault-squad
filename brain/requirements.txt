@@ -1,7 +1,11 @@
 fastapi
 uvicorn
 redis
+langchain
+langchain-groq
+langchain-community
+chromadb
 langgraph
-langchain-openai
+pydantic
 python-dotenv
-pytrends
+requests
