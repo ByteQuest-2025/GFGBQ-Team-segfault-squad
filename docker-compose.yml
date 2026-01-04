@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. n8n (The Hands)
+  # 1. The Orchestrator (n8n)
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
@@ -11,21 +11,20 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=admin
-      - N8N_ENCRYPTION_KEY=my-super-secret-key-12345
-      
-      # DATABASE SETTINGS
+      - N8N_ENCRYPTION_KEY=super-secret-key-12345
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=n8n
       - DB_POSTGRESDB_USER=n8n
       - DB_POSTGRESDB_PASSWORD=n8n
-      
-      # NETWORK FIXES FOR CODESPACES
-      - N8N_LISTEN_ADDRESS=0.0.0.0  # <--- CRITICAL: Listens on all interfaces
+      # Fixes for Codespaces Networking
+      - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
-      # Remove N8N_HOST and WEBHOOK_URL for now to prevent routing errors
-      
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_EDITOR_BASE_URL=http://localhost:5678/
+      - N8N_SECURE_COOKIE=false
     volumes:
       - ./n8n_data:/home/node/.n8n
     links:
@@ -33,15 +32,7 @@ services:
       - redis
       - brain
 
-      
-  # 2. Redis (The Nervous System)
-  redis:
-    image: redis:alpine
-    restart: always
-    ports:
-      - "6379:6379"
-
-  # 3. Postgres (Database)
+  # 2. The Database (Postgres for n8n history & Dashboard)
   postgres:
     image: postgres:16-alpine
     restart: always
@@ -52,7 +43,14 @@ services:
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
 
-  # 4. The Brain (Python + Groq)
+  # 3. The Nervous System (Redis for State/Locks)
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+
+  # 4. The Brain (LangGraph + FastAPI)
   brain:
     build: ./brain
     restart: always
@@ -64,3 +62,13 @@ services:
     volumes:
       - ./brain:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+
+    # 5. The Dashboard
+  dashboard:
+    build: ./dashboard
+    restart: always
+    ports:
+      - "8501:8501"
+    links:
+      - postgres

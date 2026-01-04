@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import redis
 import os
 import json
-from typing import TypedDict, Literal
+from typing import TypedDict
 
 # LangGraph & LangChain Imports
 from langgraph.graph import StateGraph, END
@@ -15,23 +15,27 @@ from langchain_community.embeddings import FakeEmbeddings
 app = FastAPI()
 
 # --- 1. SETUP INFRASTRUCTURE ---
+# Connect to internal Redis
 r = redis.Redis(host='redis', port=6379, decode_responses=True)
+
+# Connect to Groq (Free LLM)
 llm = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile", groq_api_key=os.getenv("GROQ_API_KEY"))
 
-# RAG Setup (Knowledge Base)
+# Setup RAG (ChromaDB with FakeEmbeddings for speed/free cost)
 embeddings = FakeEmbeddings(size=4096)
 vector_db = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
-# Initialize RAG Rules if empty
+
+# Initialize Knowledge Base (One-Time Run)
 if len(vector_db.get()['ids']) == 0:
     print("Initializing Knowledge Base...")
     vector_db.add_texts([
         "If CPA is above $50, PAUSE the campaign immediately.",
         "If CPA is below $30, SCALE the budget by 20%.",
-        "If CPA is between $30 and $50, MAINTAIN and monitor."
+        "If CPA is between $30 and $50, MAINTAIN and monitor.",
+        "Never pause 'Brand Awareness' campaigns."
     ])
 
 # --- 2. DEFINE GRAPH STATE ---
-# This dictionary holds data as it moves through the graph nodes
 class AgentState(TypedDict):
     campaign_id: str
     campaign_name: str
@@ -45,26 +49,26 @@ class AgentState(TypedDict):
 # --- 3. DEFINE NODES (The Logic Steps) ---
 
 def check_lock_node(state: AgentState):
-    """Check Redis to see if this campaign is already being optimized."""
+    """Node 1: Check Redis Lock"""
     lock_key = f"lock:{state['campaign_id']}"
     if r.exists(lock_key):
         return {"is_locked": True, "decision": "SKIPPED", "reason": "Locked in Redis"}
     
-    # If not locked, set a lock for 10 seconds
+    # Set lock for 10 seconds
     r.set(lock_key, "processing", ex=10)
     return {"is_locked": False}
 
 def retrieve_rules_node(state: AgentState):
-    """Look up best practices in ChromaDB based on CPA."""
+    """Node 2: Get RAG Context"""
     query = f"What should I do if CPA is ${state['cpa']}?"
     docs = vector_db.similarity_search(query, k=1)
     rule = docs[0].page_content if docs else "No rule found."
     return {"rag_context": rule}
 
 def analyze_node(state: AgentState):
-    """Ask the LLM to make a decision using the data and the rules."""
+    """Node 3: Ask LLM"""
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a senior ad buyer. Follow the Context Rules strictly."),
+        ("system", "You are an Ad Optimization Agent. Use the Context Rules strictly."),
         ("human", """
         Campaign: {name}
         CPA: ${cpa}
@@ -99,26 +103,19 @@ workflow.add_node("analyze_data", analyze_node)
 # Set Entry Point
 workflow.set_entry_point("check_lock")
 
-# Conditional Edge: If Locked -> End. If Not Locked -> Retrieve Rules.
+# Conditional Logic
 def check_lock_condition(state):
-    if state["is_locked"]:
-        return "end"
-    return "continue"
+    return "end" if state["is_locked"] else "continue"
 
 workflow.add_conditional_edges(
     "check_lock",
     check_lock_condition,
-    {
-        "end": END,
-        "continue": "retrieve_rules"
-    }
+    { "end": END, "continue": "retrieve_rules" }
 )
 
-# Standard Edges
 workflow.add_edge("retrieve_rules", "analyze_data")
 workflow.add_edge("analyze_data", END)
 
-# Compile the Graph
 app_graph = workflow.compile()
 
 # --- 5. API ENDPOINT ---
@@ -131,7 +128,6 @@ class RequestData(BaseModel):
 
 @app.post("/analyze")
 def run_agent(data: RequestData):
-    # Initial State
     initial_state = {
         "campaign_id": data.campaign_id,
         "campaign_name": data.campaign_name,
@@ -143,7 +139,6 @@ def run_agent(data: RequestData):
         "is_locked": False
     }
     
-    # Run the Graph
     final_state = app_graph.invoke(initial_state)
     
     return {
