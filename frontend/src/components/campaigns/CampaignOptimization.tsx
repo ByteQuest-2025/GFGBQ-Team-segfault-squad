@@ -2,7 +2,7 @@ import { GlassCard } from '../ui/GlassCard';
 import { Button } from '../ui/Button';
 import { TrendingUp, DollarSign, Users, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { apiClient, type AnalyzeResponse } from '../../lib/api';
+import { apiClient, type AnalyzeResponse } from '../lib/api';
 
 interface Campaign {
   id: string;
