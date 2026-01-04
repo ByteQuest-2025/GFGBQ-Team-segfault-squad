@@ -35,8 +35,7 @@ Build a platform where autonomous agents collaborate to interpret user inputs, m
 
 # 6️⃣ PPT Link
 
-📊 https://www.canva.com/design/DAG8zT9Fr10/iSfjHAYUz_dAc3Lw48gRMw/edit?utm_content=DAG8zT9Fr10&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
-
+https://docs.google.com/presentation/d/1ajRgtkpXIIwZQauotrvhexCicc8IvW5b/edit?usp=sharing&ouid=116238819526752805681&rtpof=true&sd=true
 ---
 
 ## 📌 Project Overview
